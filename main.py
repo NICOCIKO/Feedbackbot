@@ -1,132 +1,122 @@
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo
+from telebot import TeleBot, types
 
-TOKEN = "8341977158:AAGB6u5WiQ0LHrrEigv5NdrlSxtR9m33gKo"
-ADMIN_ID = 7924774037  # Ваш Telegram ID
+bot = TeleBot("YOUR_BOT_TOKEN")
 
-bot = telebot.TeleBot(TOKEN)
+ADMIN_ID = 123456789  # твой Telegram ID
 
-# Словари для хранения временных данных
-user_state = {}   # что пользователь выбрал
-messages_db = []  # все сообщения пользователей {user_id, username, content, type}
+# Хранилища
+user_state = {}       # user_id: состояние (обычное/аноним)
+user_messages = {}    # user_id: список сообщений
+pending_reply = {}    # admin_msg_id: user_id
 
-# --- Меню пользователей ---
-def user_menu():
-    markup = InlineKeyboardMarkup(row_width=1)
+# --- Клавиатура пользователя ---
+def main_keyboard():
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("✉️ Написать анонимно", callback_data="user_anon"),
-        InlineKeyboardButton("💬 Написать", callback_data="user_normal")
+        types.InlineKeyboardButton("✉️ Написать", callback_data="write"),
+        types.InlineKeyboardButton("🕵️ Написать анонимно", callback_data="write_anonymous")
     )
     return markup
 
-# --- Меню админа ---
-def admin_menu():
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"),
-        InlineKeyboardButton("👥 Список пользователей", callback_data="admin_users")
-    )
-    return markup
-
-# --- Отмена ---
 def cancel_button():
-    markup = InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
+    return markup
+
+# --- Кнопки для админа ---
+def admin_keyboard():
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("❌ Отмена", callback_data="cancel")
+        types.InlineKeyboardButton("📊 Статистика", callback_data="stats"),
+        types.InlineKeyboardButton("👥 Пользователи", callback_data="users")
     )
     return markup
 
-# --- Приветствие ---
-@bot.message_handler(commands=['start'])
-def start(message):
-    if message.from_user.id == ADMIN_ID:
-        bot.send_message(ADMIN_ID, "Привет, админ! Выбери действие:", reply_markup=admin_menu())
+# --- Кнопка ответить пользователю ---
+def reply_button(admin_msg_id):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("💬 Ответить", callback_data=f"reply_{admin_msg_id}"))
+    return markup
+
+# --- Старт ---
+@bot.message_handler(commands=["start"])
+def start(msg):
+    if msg.from_user.id == ADMIN_ID:
+        bot.send_message(msg.chat.id, "Привет, админ! Выбери действие:", reply_markup=admin_keyboard())
     else:
-        bot.send_message(message.chat.id, "Привет! Я помогу тебе отправить сообщения @ne_nico.\nВыбери действие:", reply_markup=user_menu())
+        bot.send_message(msg.chat.id, "Привет! Я помогу отправить сообщения/медиа или анонимку @ne_nico. Выбери действие:", reply_markup=main_keyboard())
 
-# --- Обработка нажатий инлайн кнопок ---
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
+# --- Обработка кнопок ---
+@bot.callback_query_handler(func=lambda c: True)
+def callback_handler(call):
     user_id = call.from_user.id
+    data = call.data
 
-    # --- Отмена ---
-    if call.data == "cancel":
-        try:
-            bot.delete_message(user_id, call.message.message_id)
-        except: pass
-        if user_id == ADMIN_ID:
-            bot.send_message(ADMIN_ID, "Выбери действие:", reply_markup=admin_menu())
+    if data == "write":
+        user_state[user_id] = "normal"
+        bot.send_message(user_id, "Отправьте сообщение или медиа.", reply_markup=cancel_button())
+        bot.delete_message(user_id, call.message.message_id)
+
+    elif data == "write_anonymous":
+        user_state[user_id] = "anonymous"
+        bot.send_message(user_id, "Отправьте сообщение или медиа. Оно будет анонимным.", reply_markup=cancel_button())
+        bot.delete_message(user_id, call.message.message_id)
+
+    elif data == "cancel":
+        bot.delete_message(user_id, call.message.message_id)
+        bot.send_message(user_id, "Выберите действие:", reply_markup=main_keyboard())
+
+    elif data.startswith("reply_"):
+        admin_msg_id = int(data.split("_")[1])
+        target_user = pending_reply.get(admin_msg_id)
+        if target_user:
+            user_state[target_user] = f"reply_{admin_msg_id}"
+            bot.send_message(user_id, "Напишите ответ:", reply_markup=cancel_button())
+
+    elif data == "stats":
+        total_users = len(user_messages)
+        bot.send_message(user_id, f"Всего пользователей: {total_users}")
+
+    elif data == "users":
+        if user_messages:
+            text = "Список пользователей:\n" + "\n".join([f"{uid} | {uname}" for uid, uname in user_messages.items()])
         else:
-            bot.send_message(user_id, "Выбери действие:", reply_markup=user_menu())
-        user_state.pop(user_id, None)
+            text = "Пользователи отсутствуют."
+        bot.send_message(user_id, text)
+
+# --- Приём сообщений ---
+@bot.message_handler(content_types=["text", "photo", "video", "document", "sticker"])
+def handle_message(msg):
+    user_id = msg.from_user.id
+    state = user_state.get(user_id)
+
+    if state is None:
+        bot.send_message(user_id, "Выберите действие:", reply_markup=main_keyboard())
         return
 
-    # --- Меню пользователя ---
-    if call.data in ["user_anon", "user_normal"]:
-        user_state[user_id] = call.data
-        try:
-            bot.delete_message(user_id, call.message.message_id)
-        except: pass
-        bot.send_message(user_id, "Отправьте сообщение или медиа. Оно будет анонимным для других пользователей.", reply_markup=cancel_button())
-        return
+    # Сохраняем пользователя
+    if user_id not in user_messages:
+        user_messages[user_id] = msg.from_user.username or msg.from_user.first_name
 
-    # --- Меню админа ---
-    if user_id == ADMIN_ID:
-        if call.data == "admin_stats":
-            bot.send_message(ADMIN_ID, f"Всего сообщений: {len(messages_db)}", reply_markup=admin_menu())
-        elif call.data == "admin_users":
-            if messages_db:
-                users_list = "\n".join([f"{m['username']} ({m['user_id']})" for m in messages_db])
-                bot.send_message(ADMIN_ID, f"Пользователи, кто писал:\n{users_list}", reply_markup=admin_menu())
-            else:
-                bot.send_message(ADMIN_ID, "Пока нет пользователей.", reply_markup=admin_menu())
-        elif call.data.startswith("reply_"):
-            target_id = int(call.data.split("_")[1])
-            user_state[ADMIN_ID] = f"reply_{target_id}"
-            bot.send_message(ADMIN_ID, "Напиши ответ пользователю:", reply_markup=cancel_button())
-        return
+    # Сообщение для админа
+    if state == "normal" or state == "anonymous":
+        text = ""
+        if state == "normal":
+            text += f"От {msg.from_user.username or msg.from_user.first_name} (ID: {user_id}):\n"
+        text += msg.text or "<медиа сообщение>"
+        sent = bot.send_message(ADMIN_ID, text, reply_markup=reply_button(msg.message_id))
+        pending_reply[sent.message_id] = user_id
+        bot.send_message(user_id, "Сообщение отправлено.", reply_markup=main_keyboard())
 
-# --- Обработка сообщений ---
-@bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'video', 'document', 'audio'])
-def handle_message(message):
-    user_id = message.from_user.id
+    elif state.startswith("reply_"):
+        # Админ ответил пользователю
+        reply_id = int(state.split("_")[1])
+        target_user = pending_reply.get(reply_id)
+        if target_user:
+            bot.forward_message(target_user, msg.chat.id, msg.message_id)
+            bot.send_message(target_user, "💬 Ответ от администратора", reply_markup=reply_button(msg.message_id))
+            bot.send_message(msg.chat.id, "Ответ отправлен.", reply_markup=admin_keyboard())
 
-    # --- Админ отвечает ---
-    if user_id == ADMIN_ID and user_id in user_state and str(user_state[user_id]).startswith("reply_"):
-        target_id = int(str(user_state[user_id]).split("_")[1])
-        try:
-            bot.send_message(target_id, f"Сообщение от администратора:\n{message.text}")
-        except:
-            bot.send_message(ADMIN_ID, "Не удалось отправить сообщение пользователю.")
-        bot.send_message(ADMIN_ID, "Ответ отправлен.", reply_markup=admin_menu())
-        user_state.pop(user_id, None)
-        return
-
-    # --- Пользователь отправляет ---
-    if user_id in user_state:
-        data_type = user_state[user_id]
-        content = None
-        if message.content_type == 'text':
-            content = message.text
-        elif message.content_type in ['photo', 'video', 'document', 'audio']:
-            content = message.file_id  # сохраняем id файла
-        messages_db.append({
-            'user_id': user_id,
-            'username': message.from_user.username,
-            'content': content,
-            'type': message.content_type,
-            'anonymous': data_type=="user_anon"
-        })
-        bot.send_message(user_id, "Сообщение отправлено!", reply_markup=user_menu())
-        # Уведомление админу
-        try:
-            bot.send_message(ADMIN_ID,
-                             f"Новое сообщение от {message.from_user.username} ({user_id}):\n{content}",
-                             reply_markup=InlineKeyboardMarkup().add(
-                                 InlineKeyboardButton("💬 Ответить", callback_data=f"reply_{user_id}")
-                             ))
-        except: pass
-        user_state.pop(user_id, None)
-        return
+    user_state[user_id] = None
 
 bot.infinity_polling()
