@@ -5,7 +5,7 @@ TOKEN = "ТВОЙ_ТОКЕН_БОТА"
 ADMIN_ID = 7924774037  # твой ID
 bot = telebot.TeleBot(TOKEN)
 
-# Для хранения сообщений анонимных
+# Для хранения анонимных сообщений
 anonymous_messages = {}
 
 @bot.message_handler(commands=['start'])
@@ -36,9 +36,9 @@ def callback_handler(call):
             bot.register_next_step_handler(msg, send_anonymous)
     else:
         if call.data == "stats":
-            bot.send_message(ADMIN_ID, "Всего пользователей: ...")  # здесь можно добавить логику
+            bot.send_message(ADMIN_ID, "Всего пользователей: ...")  # сюда логику можно добавить
         elif call.data == "users":
-            bot.send_message(ADMIN_ID, "Список пользователей: ...")  # здесь тоже логика
+            bot.send_message(ADMIN_ID, "Список пользователей: ...")  # сюда логику можно добавить
 
 def send_message(message):
     text = message.text
@@ -51,6 +51,5 @@ def send_anonymous(message):
     bot.send_message(ADMIN_ID, f"Анонимное сообщение от {message.from_user.username} (ID: {message.from_user.id}): {text}")
     bot.send_message(message.from_user.id, "✅ Сообщение отправлено анонимно!")
 
-# Убираем старые webhook, чтобы избежать 409 ошибки
-bot.remove_webhook()
+# Просто запускаем polling, без remove_webhook
 bot.infinity_polling(timeout=60)
