@@ -88,5 +88,5 @@ def receive_message(message):
     )
 
 # ================= RUN =================
-bot.remove_webhook()  # сброс старого webhook
+bot.remove_webhook()  # сброс старого webhook (обязательно!)
 bot.infinity_polling(timeout=60)
