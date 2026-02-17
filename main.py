@@ -14,7 +14,7 @@ messages_for_admin = {}  # user_id: [message_ids]
 def user_menu():
     markup = InlineKeyboardMarkup()
     markup.row(
-        InlineKeyboardButton("✉️ Написать анонимно", callback_data="anon"),
+        InlineKeyboardButton("🕵Написать анонимно", callback_data="anon"),
         InlineKeyboardButton("💬 Написать", callback_data="normal")
     )
     return markup
