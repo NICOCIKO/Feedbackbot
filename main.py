@@ -87,5 +87,5 @@ def receive_message(message):
     )
 
 # ================= RUN =================
-bot.remove_webhook()
-bot.infinity_polling()
+bot.remove_webhook()  # сбрасываем все старые webhook, чтобы не было 409
+bot.infinity_polling(timeout=60)  # один процесс, без конфликта
