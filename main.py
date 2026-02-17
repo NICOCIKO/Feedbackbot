@@ -1,8 +1,8 @@
 from telebot import TeleBot, types
 
-bot = TeleBot("YOUR_BOT_TOKEN")
+bot = TeleBot("8341977158:AAGB6u5WiQ0LHrrEigv5NdrlSxtR9m33gKo")
 
-ADMIN_ID = 123456789  # твой Telegram ID
+ADMIN_ID = 7924774037  # твой Telegram ID
 
 # Хранилища
 user_state = {}       # user_id: состояние (обычное/аноним)
