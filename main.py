@@ -23,16 +23,16 @@ def start_handler(message):
         markup = types.InlineKeyboardMarkup()
         btn_stats = types.InlineKeyboardButton("📊 Статистика", callback_data="stats")
         btn_users = types.InlineKeyboardButton("👥 Пользователи", callback_data="users")
-        markup.add([btn_stats])  # отдельная строка
-        markup.add([btn_users])  # отдельная строка
+        markup.add([btn_stats])
+        markup.add([btn_users])
         bot.send_message(user_id, "Привет, админ! Выбери действие:", reply_markup=markup)
     else:
         # Кнопки для обычного пользователя
         markup = types.InlineKeyboardMarkup()
         btn_msg = types.InlineKeyboardButton("📩 Написать сообщение", callback_data="send_message")
         btn_anon = types.InlineKeyboardButton("🕵️ Написать анонимно", callback_data="send_anonymous")
-        markup.add([btn_msg])  # отдельная строка
-        markup.add([btn_anon])  # отдельная строка
+        markup.add([btn_msg])
+        markup.add([btn_anon])
         bot.send_message(user_id, "Привет! Выбери способ отправки сообщения:", reply_markup=markup)
 
 # ================= CALLBACK =================
@@ -57,6 +57,7 @@ def callback_handler(call):
         else:
             text = "Нет пользователей."
         bot.send_message(user_id, text)
+
     bot.answer_callback_query(call.id)
 
 # ================= RECEIVE MESSAGE =================
@@ -66,7 +67,7 @@ def receive_message(message):
     sender = message.from_user
     is_anon = mode == "anonymous"
 
-    # Считаем статистику
+    # Статистика
     stats[mode] += 1
 
     # Сохраняем пользователя
@@ -80,12 +81,12 @@ def receive_message(message):
         f"Текст:\n{message.text}"
     )
 
-    # Сообщение пользователю
+    # Подтверждение пользователю
     bot.send_message(
         sender.id,
         "✅ Сообщение отправлено анонимно!" if is_anon else "✅ Сообщение отправлено!"
     )
 
 # ================= RUN =================
-bot.remove_webhook()  # сбрасываем старые webhook
+bot.remove_webhook()  # сброс старого webhook
 bot.infinity_polling(timeout=60)
