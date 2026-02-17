@@ -23,16 +23,16 @@ def start_handler(message):
         markup = types.InlineKeyboardMarkup()
         btn_stats = types.InlineKeyboardButton("📊 Статистика", callback_data="stats")
         btn_users = types.InlineKeyboardButton("👥 Пользователи", callback_data="users")
-        markup.add([btn_stats])
-        markup.add([btn_users])
+        markup.add([btn_stats])  # отдельная строка
+        markup.add([btn_users])  # отдельная строка
         bot.send_message(user_id, "Привет, админ! Выбери действие:", reply_markup=markup)
     else:
         # Кнопки для обычного пользователя
         markup = types.InlineKeyboardMarkup()
         btn_msg = types.InlineKeyboardButton("📩 Написать сообщение", callback_data="send_message")
         btn_anon = types.InlineKeyboardButton("🕵️ Написать анонимно", callback_data="send_anonymous")
-        markup.add([btn_msg])
-        markup.add([btn_anon])
+        markup.add([btn_msg])  # отдельная строка
+        markup.add([btn_anon])  # отдельная строка
         bot.send_message(user_id, "Привет! Выбери способ отправки сообщения:", reply_markup=markup)
 
 # ================= CALLBACK =================
@@ -87,5 +87,5 @@ def receive_message(message):
     )
 
 # ================= RUN =================
-bot.remove_webhook()  # сбрасываем все старые webhook, чтобы не было 409
-bot.infinity_polling(timeout=60)  # один процесс, без конфликта
+bot.remove_webhook()  # сбрасываем старые webhook
+bot.infinity_polling(timeout=60)
