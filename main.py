@@ -12,8 +12,8 @@ users = {}
 def main_menu():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("Написать сообщение", callback_data="write"),
-        InlineKeyboardButton("Отправить анонимно", callback_data="anon")
+        InlineKeyboardButton("✍️ Написать сообщение", callback_data="write"),
+        InlineKeyboardButton("🕵️ Отправить анонимно", callback_data="anon")
     )
     return markup
 
@@ -22,7 +22,11 @@ def main_menu():
 def start(message):
     user_id = message.from_user.id
     users[user_id] = message.from_user.username or "Без username"
-    bot.send_message(user_id, "Выберите действие:", reply_markup=main_menu())
+    bot.send_message(
+        user_id,
+        "👋 Добро пожаловать!\n\nВыберите действие ниже:",
+        reply_markup=main_menu()
+    )
 
 # Обработка кнопок
 @bot.callback_query_handler(func=lambda c: True)
@@ -30,14 +34,17 @@ def callback_handler(call):
     user_id = call.from_user.id
 
     # Удаляем старое сообщение с кнопками
-    bot.delete_message(user_id, call.message.message_id)
+    try:
+        bot.delete_message(user_id, call.message.message_id)
+    except:
+        pass
 
     if call.data == "write":
-        msg = bot.send_message(user_id, "Введите сообщение:")
+        msg = bot.send_message(user_id, "✍️ Введите сообщение:")
         bot.register_next_step_handler(msg, process_message, False, msg.message_id)
 
     elif call.data == "anon":
-        msg = bot.send_message(user_id, "Введите анонимное сообщение:")
+        msg = bot.send_message(user_id, "🕵️ Введите анонимное сообщение:")
         bot.register_next_step_handler(msg, process_message, True, msg.message_id)
 
 # Обработка сообщения
@@ -46,12 +53,19 @@ def process_message(message, is_anon, prompt_id):
     username = users.get(user_id, "Без username")
 
     # Удаляем сообщение "Введите сообщение"
-    bot.delete_message(user_id, prompt_id)
+    try:
+        bot.delete_message(user_id, prompt_id)
+    except:
+        pass
 
     header = (
-        f"📩 Анонимное сообщение\nОт: @{username}\nID: {user_id}\n\n"
+        f"🕵️ Анонимное сообщение\n"
+        f"👤 От: @{username}\n"
+        f"🆔 ID: {user_id}\n\n"
         if is_anon else
-        f"📩 Сообщение\nОт: @{username}\nID: {user_id}\n\n"
+        f"📩 Новое сообщение\n"
+        f"👤 От: @{username}\n"
+        f"🆔 ID: {user_id}\n\n"
     )
 
     # Текст
@@ -63,7 +77,7 @@ def process_message(message, is_anon, prompt_id):
         bot.send_photo(
             ADMIN_ID,
             message.photo[-1].file_id,
-            caption=header
+            caption=header + "📷 Фото"
         )
 
     # Видео
@@ -71,7 +85,7 @@ def process_message(message, is_anon, prompt_id):
         bot.send_video(
             ADMIN_ID,
             message.video.file_id,
-            caption=header
+            caption=header + "🎬 Видео"
         )
 
     # Документ
@@ -79,7 +93,7 @@ def process_message(message, is_anon, prompt_id):
         bot.send_document(
             ADMIN_ID,
             message.document.file_id,
-            caption=header
+            caption=header + "📄 Документ"
         )
 
     # Аудио
@@ -87,10 +101,14 @@ def process_message(message, is_anon, prompt_id):
         bot.send_audio(
             ADMIN_ID,
             message.audio.file_id,
-            caption=header
+            caption=header + "🎵 Аудио"
         )
 
     # Подтверждение пользователю
-    bot.send_message(user_id, "✅ Сообщение отправлено!", reply_markup=main_menu())
+    bot.send_message(
+        user_id,
+        "✅ Ваше сообщение успешно отправлено!",
+        reply_markup=main_menu()
+    )
 
 bot.infinity_polling()
