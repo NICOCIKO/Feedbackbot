@@ -1,206 +1,159 @@
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import json
-import os
+from telebot import TeleBot, types
 
 TOKEN = "8341977158:AAGB6u5WiQ0LHrrEigv5NdrlSxtR9m33gKo"
-ADMIN_ID = 7924774037
+ADMIN_ID = 7924774037  # Ваш ID
+bot = TeleBot(TOKEN)
 
-bot = telebot.TeleBot(TOKEN)
-
-DATA_FILE = "users.json"
-
-# ===== Загрузка пользователей =====
-
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        users = json.load(f)
-else:
-    users = {}
-
-def save_users():
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, indent=4)
-
-# ===== Переводы =====
+users = {}  # Хранилище пользователей и состояний
+pending_admin_reply = {}  # Для ответа админа
 
 texts = {
     "ru": {
-        "choose_lang": "🌍 Выберите язык:",
-        "welcome": "👋 Добро пожаловать!\n\nВыберите действие:",
-        "write": "✍️ Написать сообщение",
-        "anon": "🕵️ Анонимное сообщение",
-        "change_lang": "🌍 Сменить язык",
-        "enter_msg": "✍️ Введите сообщение:",
-        "enter_anon": "🕵️ Введите анонимное сообщение:",
-        "sent": "✅ Сообщение отправлено!",
-        "reply_from_admin": "📩 Ответ от администратора:"
+        "choose_lang": "Выберите язык 🇷🇺",
+        "prompt_anonymous": "Отправьте сообщение или медиа. Оно будет анонимным 👤",
+        "prompt_normal": "Отправьте сообщение или медиа ✉️",
+        "sent": "Ваше сообщение отправлено ✅",
+        "action": "Выберите действие:",
+        "write": "Написать сообщение ✉️",
+        "anon": "Отправить анонимно 👤",
+        "cancel": "Отмена ❌",
+        "reply": "Ответить 📨"
     },
     "en": {
-        "choose_lang": "🌍 Choose language:",
-        "welcome": "👋 Welcome!\n\nChoose action:",
-        "write": "✍️ Send message",
-        "anon": "🕵️ Anonymous message",
-        "change_lang": "🌍 Change language",
-        "enter_msg": "✍️ Enter message:",
-        "enter_anon": "🕵️ Enter anonymous message:",
-        "sent": "✅ Message sent!",
-        "reply_from_admin": "📩 Reply from admin:"
+        "choose_lang": "Choose language 🇬🇧",
+        "prompt_anonymous": "Send a message or media. It will be anonymous 👤",
+        "prompt_normal": "Send a message or media ✉️",
+        "sent": "Your message has been sent ✅",
+        "action": "Choose an action:",
+        "write": "Write message ✉️",
+        "anon": "Send anonymously 👤",
+        "cancel": "Cancel ❌",
+        "reply": "Reply 📨"
     },
     "uz": {
-        "choose_lang": "🌍 Tilni tanlang:",
-        "welcome": "👋 Xush kelibsiz!\n\nAmalni tanlang:",
-        "write": "✍️ Xabar yuborish",
-        "anon": "🕵️ Anonim xabar",
-        "change_lang": "🌍 Tilni o‘zgartirish",
-        "enter_msg": "✍️ Xabarni kiriting:",
-        "enter_anon": "🕵️ Anonim xabarni kiriting:",
-        "sent": "✅ Xabar yuborildi!",
-        "reply_from_admin": "📩 Administrator javobi:"
+        "choose_lang": "Tilni tanlang 🇺🇿",
+        "prompt_anonymous": "Xabar yoki media yuboring. U anonim bo'ladi 👤",
+        "prompt_normal": "Xabar yoki media yuboring ✉️",
+        "sent": "Xabaringiz yuborildi ✅",
+        "action": "Harakatni tanlang:",
+        "write": "Xabar yozish ✉️",
+        "anon": "Anonim yuborish 👤",
+        "cancel": "Bekor qilish ❌",
+        "reply": "Javob berish 📨"
     },
     "ar": {
-        "choose_lang": "🌍 اختر اللغة:",
-        "welcome": "👋 مرحبًا!\n\nاختر إجراء:",
-        "write": "✍️ إرسال رسالة",
-        "anon": "🕵️ رسالة مجهولة",
-        "change_lang": "🌍 تغيير اللغة",
-        "enter_msg": "✍️ اكتب الرسالة:",
-        "enter_anon": "🕵️ اكتب الرسالة المجهولة:",
-        "sent": "✅ تم الإرسال!",
-        "reply_from_admin": "📩 رد من المشرف:"
+        "choose_lang": "اختر اللغة 🇸🇦",
+        "prompt_anonymous": "أرسل رسالة أو وسائط. ستكون مجهولة 👤",
+        "prompt_normal": "أرسل رسالة أو وسائط ✉️",
+        "sent": "تم إرسال رسالتك ✅",
+        "action": "اختر الإجراء:",
+        "write": "اكتب رسالة ✉️",
+        "anon": "إرسال مجهول 👤",
+        "cancel": "إلغاء ❌",
+        "reply": "رد 📨"
     }
 }
 
-# ===== Меню =====
-
-def language_menu():
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru"),
-        InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
-        InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang_uz"),
-        InlineKeyboardButton("🇸🇦 العربية", callback_data="lang_ar")
-    )
-    return markup
-
-def main_menu(lang):
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        InlineKeyboardButton(texts[lang]["write"], callback_data="write"),
-        InlineKeyboardButton(texts[lang]["anon"], callback_data="anon"),
-        InlineKeyboardButton(texts[lang]["change_lang"], callback_data="change_lang")
-    )
-    return markup
-
-# ===== START =====
-
+# Старт
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.send_message(message.chat.id, texts["ru"]["choose_lang"], reply_markup=language_menu())
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    markup.add("🇷🇺", "🇬🇧", "🇺🇿", "🇸🇦")
+    msg = bot.send_message(message.chat.id, "Выберите язык 🌐", reply_markup=markup)
+    users[message.chat.id] = {"lang_msg_id": msg.message_id}
 
-# ===== CALLBACK =====
+# Выбор языка
+@bot.message_handler(func=lambda m: m.chat.id in users and "lang_msg_id" in users[m.chat.id])
+def set_language(message):
+    lang_map = {"🇷🇺": "ru", "🇬🇧": "en", "🇺🇿": "uz", "🇸🇦": "ar"}
+    lang = lang_map.get(message.text, "ru")
+    users[message.chat.id]["lang"] = lang
+    try: bot.delete_message(message.chat.id, users[message.chat.id]["lang_msg_id"])
+    except: pass
+    send_action_buttons(message.chat.id)
 
-@bot.callback_query_handler(func=lambda c: True)
-def callback_handler(call):
-    user_id = str(call.from_user.id)
-
-    # ===== Выбор языка =====
-    if call.data.startswith("lang_"):
-        lang = call.data.split("_")[1]
-
-        users[user_id] = {
-            "username": call.from_user.username or "NoUsername",
-            "lang": lang
-        }
-        save_users()
-
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-
-        bot.send_message(
-            call.message.chat.id,
-            texts[lang]["welcome"],
-            reply_markup=main_menu(lang)
-        )
-        return
-
-    user = users.get(user_id)
-    if not user:
-        return
-
-    lang = user["lang"]
-
-    bot.delete_message(call.message.chat.id, call.message.message_id)
-
-    if call.data == "write":
-        msg = bot.send_message(user_id, texts[lang]["enter_msg"])
-        bot.register_next_step_handler(msg, process_message, False)
-
-    elif call.data == "anon":
-        msg = bot.send_message(user_id, texts[lang]["enter_anon"])
-        bot.register_next_step_handler(msg, process_message, True)
-
-    elif call.data == "change_lang":
-        bot.send_message(user_id, texts[lang]["choose_lang"], reply_markup=language_menu())
-
-# ===== Отправка администратору =====
-
-def process_message(message, is_anon):
-    user_id = str(message.from_user.id)
-    user = users.get(user_id)
-    if not user:
-        return
-
-    lang = user["lang"]
-    username = user["username"]
-
-    header = (
-        f"🕵️ ANONYMOUS\n🆔 {user_id}\n\n"
-        if is_anon else
-        f"📩 MESSAGE\n👤 @{username}\n🆔 {user_id}\n\n"
-    )
-
-    markup = InlineKeyboardMarkup()
+# Кнопки действий для пользователя
+def send_action_buttons(chat_id):
+    lang = users[chat_id]["lang"]
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("↩️ Reply", callback_data=f"reply_{user_id}")
+        types.InlineKeyboardButton(text=texts[lang]["write"], callback_data="write"),
+        types.InlineKeyboardButton(text=texts[lang]["anon"], callback_data="anon")
+    )
+    bot.send_message(chat_id, texts[lang]["action"], reply_markup=markup)
+
+# Обработка выбора действия
+@bot.callback_query_handler(func=lambda c: c.data in ["write", "anon"])
+def handle_action(call):
+    chat_id = call.message.chat.id
+    lang = users[chat_id]["lang"]
+    users[chat_id]["current_action"] = call.data
+
+    prompt_text = texts[lang]["prompt_normal"] if call.data == "write" else texts[lang]["prompt_anonymous"]
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(texts[lang]["cancel"])
+
+    sent_msg = bot.send_message(chat_id, prompt_text, reply_markup=markup)
+    users[chat_id]["last_prompt_id"] = sent_msg.message_id
+    try: bot.delete_message(chat_id, call.message.message_id)
+    except: pass
+
+# Обработка отмены
+@bot.message_handler(func=lambda m: m.text in [texts[users[m.chat.id]["lang"]]["cancel"] for m in users if "lang" in users[m.chat.id]])
+def handle_cancel(message):
+    chat_id = message.chat.id
+    try: bot.delete_message(chat_id, users[chat_id]["last_prompt_id"])
+    except: pass
+    send_action_buttons(chat_id)
+
+# Получение текста или медиа
+@bot.message_handler(content_types=["text", "photo", "video", "document", "sticker", "audio", "voice"])
+def handle_user_message(message):
+    chat_id = message.chat.id
+    if chat_id not in users or "current_action" not in users[chat_id]:
+        return
+
+    lang = users[chat_id]["lang"]
+    action = users[chat_id]["current_action"]
+
+    try: bot.delete_message(chat_id, users[chat_id]["last_prompt_id"])
+    except: pass
+
+    # Отправка админу
+    user_info = f"@{message.from_user.username} (id: {message.from_user.id})"
+    anon_text = "анонимное " if action=="anon" else ""
+    msg_to_admin = bot.send_message(
+        ADMIN_ID, f"Новое {anon_text}сообщение от {user_info}"
     )
 
+    # Кнопка "Ответить" админу
+    reply_markup = types.InlineKeyboardMarkup()
+    reply_markup.add(types.InlineKeyboardButton(text=texts["ru"]["reply"], callback_data=f"reply_{message.from_user.id}"))
+    
     if message.content_type == "text":
-        bot.send_message(ADMIN_ID, header + message.text, reply_markup=markup)
+        bot.send_message(ADMIN_ID, message.text, reply_markup=reply_markup)
+    else:
+        fwd = bot.forward_message(ADMIN_ID, chat_id, message.message_id)
+        bot.send_message(ADMIN_ID, "Ответить на это сообщение:", reply_markup=reply_markup)
 
-    elif message.content_type == "photo":
-        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=header, reply_markup=markup)
+    # Подтверждение пользователю
+    bot.send_message(chat_id, texts[lang]["sent"])
+    send_action_buttons(chat_id)
 
-    elif message.content_type == "video":
-        bot.send_video(ADMIN_ID, message.video.file_id, caption=header, reply_markup=markup)
-
-    bot.send_message(user_id, texts[lang]["sent"], reply_markup=main_menu(lang))
-
-# ===== Ответ админа =====
-
+# Обработка нажатия "Ответить" админом
 @bot.callback_query_handler(func=lambda c: c.data.startswith("reply_"))
-def admin_reply(call):
-    if call.from_user.id != ADMIN_ID:
-        return
+def handle_admin_reply(call):
+    target_id = int(call.data.split("_")[1])
+    pending_admin_reply[ADMIN_ID] = target_id
+    bot.send_message(ADMIN_ID, f"Напишите ответ пользователю {target_id}:")
 
-    user_id = call.data.split("_")[1]
-
-    msg = bot.send_message(ADMIN_ID, "✍️ Введите ответ:")
-    bot.register_next_step_handler(msg, send_admin_reply, user_id)
-
-def send_admin_reply(message, user_id):
-    user = users.get(user_id)
-    if not user:
-        return
-
-    lang = user["lang"]
-
+# Отправка ответа админа пользователю
+@bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID and ADMIN_ID in pending_admin_reply)
+def send_admin_reply(message):
+    target_id = pending_admin_reply.pop(ADMIN_ID)
     if message.content_type == "text":
-        bot.send_message(user_id, f"{texts[lang]['reply_from_admin']}\n\n{message.text}")
-
-    elif message.content_type == "photo":
-        bot.send_photo(user_id, message.photo[-1].file_id,
-                       caption=texts[lang]["reply_from_admin"])
-
-    bot.send_message(ADMIN_ID, "✅ Ответ отправлен")
+        bot.send_message(target_id, f"Ответ от администратора:\n{message.text}")
+    else:
+        bot.forward_message(target_id, ADMIN_ID, message.message_id)
 
 bot.infinity_polling()
